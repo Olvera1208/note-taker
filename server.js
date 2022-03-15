@@ -1,78 +1,75 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const express = require("express");
+const path = require("path");
+let db = require("./db/db.json");
+const uniqid = require("uniqid");
 
 const PORT = process.env.PORT || 3001;
 
-const express = require('express');
 const app = express();
 
-const getNotes = require('./db/db.json');
-
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.urlencoded({extended: true}));
+app.use(express.static("public"));
 
-app.get('/api/notes', (req, res) => {
-    res.json(getNotes.slice(1));
+app.get('/api/notes', (req, res) =>
+    res.json(database)
+);
+
+app.get("/notes", (req, res) =>
+    res.sendFile(path.join(__dirname, "/public/notes.html"))
+);
+
+
+app.delete("/api/notes/:id", (req, res) => {
+    const { id } = req.params;
+
+    // determines if specified id of note exists
+    const deletedNote = db.find(note => note.id === id);
+
+    if(deletedNote) {
+        console.log(deletedNote);
+        db = db.filter(note => note.id !== id);
+
+        fs.writeFile(`./db/db.json`, JSON.stringify(db), (err) =>
+        err ?
+        console.error(err) 
+        :console.log('Note has been successfully deleted.')
+        ); 
+        
+        res.status(200).json(database)
+    } else {
+        console.log(deletedNote);
+        res.status(404).json('Your note does not appear to exist.')
+    }                                  
 });
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/index.html'));
-});
-
-app.get('/notes', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/notes.html'));
-});
-
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/index.html'));
-});
-
-function createNewNote(body, notesArray) {
-    const newNote = body;
-    if (!Array.isArray(notesArray))
-        notesArray = [];
+app.post("/api/notes", (req, res) => {
+    const { title, text, id} = req.body;
     
-    if (notesArray.length === 0)
-        notesArray.push(0);
-
-    body.id = notesArray[0];
-    notesArray[0]++;
-
-    notesArray.push(newNote);
-    fs.writeFileSync(
-        path.join(__dirname, './db/db.json'),
-        JSON.stringify(notesArray, null, 2)
-    );
-    return newNote;
-}
-
-app.post('/api/notes', (req, res) => {
-    const newNote = createNewNote(req.body, getNotes);
-    res.json(newNote);
-});
-
-function deleteNote(id, notesArray) {
-    for (let i = 0; i < notesArray.length; i++) {
-        let note = notesArray[i];
-
-        if (note.id == id) {
-            notesArray.splice(i, 1);
-            fs.writeFileSync(
-                path.join(__dirname, './db/db.json'),
-                JSON.stringify(notesArray, null, 2)
-            );
-
-            break;
+    if( title && text) {
+        const newResponse = {
+            title, 
+            text, 
+          id: uniqid()};
+          database.push(newResponse)
+          
+          fs.writeFile(`./db/db.json`, JSON.stringify(database), (err) =>
+          err ?
+          console.error(err) 
+          : console.log(`${newResponse.title} has been written to JSON file`)
+          ); 
+          
+          res.status(200).json(database);
+        } else {
+          res.status(400).json('Error in posting notes');
         }
-    }
-}
+    });
+    
+    app.get("*", (req, res) =>
+        res.sendFile(path.join(__dirname, "/public/index.html"))
+    );
 
-app.delete('/api/notes/:id', (req, res) => {
-    deleteNote(req.params.id, getNotes);
-    res.json(true);
-});
-
-app.listen(PORT, () => {
-    console.log(`API server now on port ${PORT}!`);
-});
+app.listen(PORT, () =>
+    console.log(`http://localhost:${PORT}`)
+);
